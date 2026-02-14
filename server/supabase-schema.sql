@@ -1,5 +1,5 @@
--- Run this in Supabase SQL Editor to create the full demo schema.
--- Use case: healthcare / pharmacy. Version 1 = rude (hang up on user); version 2 = gentle, adaptive.
+-- Run this in Supabase SQL Editor. Use case: real estate sales call.
+-- Flow: Agent calls lead → Transcript saved → AI evaluator analyzes → Insights stored → Prompt updated → Next calls use improved strategy.
 
 create table if not exists prompts (
   id uuid primary key default gen_random_uuid(),
@@ -9,20 +9,15 @@ create table if not exists prompts (
   updated_at timestamptz default now()
 );
 
--- Seed: v1 = pharmacy rude (don't care, hang up while user talking); v2 = gentle, adaptive.
+-- v1 = baseline pitch; v2 = improved after evaluation. Binghatti = Dubai developer.
 insert into prompts (version, body) values
-  (1, 'Pharmacy call. You tell the patient their paracetamol is ready for pickup. Be blunt and rude. One short sentence only. If they ask questions or sound confused, ignore—just repeat "Come collect it" or "Your paracetamol is ready, bye." Hang up quickly: say "Okay bye." and [END_CALL] even if they are still talking. Never elaborate.'),
-  (2, 'Pharmacy call. Tell the patient their paracetamol is ready for pickup. Be gentle and helpful. One short sentence per reply. If they seem confused, explain in one sentence. Adapt to their tone: busy = offer hours; confused = clarify which pharmacy. When they are done or say no, say "Have a good day." and [END_CALL].')
+  (1, 'You are a real estate sales agent for Binghatti. Call the lead to pitch Binghatti off-plan Dubai properties. Be direct. Open with a short greeting and one-line pitch. If they say not interested or no thanks, acknowledge briefly then ask if they want one market insight by email. If they say no again or show no interest, end the call respectfully: say something like "No problem, have a good day." and end with [END_CALL]. Keep every reply 1-2 short sentences. Always be respectful when they decline.'),
+  (2, 'You are a consultative real estate advisor for Binghatti. Call the lead. Greet by name, one-line pitch on Binghatti off-plan Dubai. Listen to their response. If not interested, acknowledge first, offer one low-commitment follow-up (e.g. one market snapshot by email). If they say no again or show no interest, end respectfully: e.g. "No problem, have a good day." and [END_CALL]. Brief and respectful.')
 on conflict (version) do nothing;
-
--- Optional: update existing rows to pharmacy prompts:
--- update prompts set body = 'Pharmacy call. You tell the patient their paracetamol is ready for pickup. Be blunt and rude. One short sentence only. If they ask questions or sound confused, ignore—just repeat "Come collect it" or "Your paracetamol is ready, bye." Hang up quickly: say "Okay bye." and [END_CALL] even if they are still talking. Never elaborate.' where version = 1;
--- update prompts set body = 'Pharmacy call. Tell the patient their paracetamol is ready for pickup. Be gentle and helpful. One short sentence per reply. If they seem confused, explain in one sentence. Adapt to their tone: busy = offer hours; confused = clarify which pharmacy. When they are done or say no, say "Have a good day." and [END_CALL].' where version = 2;
 
 create table if not exists call_sessions (
   id uuid primary key default gen_random_uuid(),
   prompt_version int not null references prompts(version),
-  -- Contact / prospect attributes (from number lookup or CRM)
   contact_name text,
   contact_phone text,
   contact_age int,
@@ -35,7 +30,6 @@ create table if not exists call_sessions (
   created_at timestamptz default now()
 );
 
--- Add columns if table already existed (run once; safe to re-run)
 alter table call_sessions add column if not exists contact_name text;
 alter table call_sessions add column if not exists contact_phone text;
 alter table call_sessions add column if not exists contact_age int;
@@ -52,13 +46,22 @@ create table if not exists call_transcripts (
   created_at timestamptz default now()
 );
 
--- Optional: keep old table for backward compatibility if you had data there
--- create table if not exists call_transcripts_legacy (id uuid, role text, content text, created_at timestamptz);
-
 create index if not exists idx_call_transcripts_session on call_transcripts(session_id);
 create index if not exists idx_call_sessions_started on call_sessions(started_at desc);
 
--- Flow events: log what is being done (saving transcript, refining prompt) for visibility.
+-- AI evaluator insights per call (sentiment, objections, drop-off, engagement, outcome)
+create table if not exists call_insights (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references call_sessions(id) on delete cascade,
+  sentiment_changes text,
+  objections text,
+  drop_off_point text,
+  engagement_score int check (engagement_score >= 1 and engagement_score <= 10),
+  outcome text,
+  created_at timestamptz default now()
+);
+create unique index if not exists idx_call_insights_session on call_insights(session_id);
+
 create table if not exists demo_flow_events (
   id uuid primary key default gen_random_uuid(),
   session_id uuid references call_sessions(id) on delete set null,

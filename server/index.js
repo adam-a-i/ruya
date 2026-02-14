@@ -87,15 +87,15 @@ app.get("/api/demo/prompt", async (req, res) => {
     const version = Math.max(1, Math.min(2, parseInt(req.query.version, 10) || 1));
     if (!supabase) {
       const fallback = version === 1
-        ? "Pharmacy. Tell patient paracetamol is ready. Be blunt, one sentence. Hang up with [END_CALL] even if they talk."
-        : "Pharmacy. Paracetamol ready. Be gentle, one sentence. Adapt to user. Goodbye then [END_CALL].";
+        ? "Real estate agent for Binghatti. Pitch Binghatti off-plan Dubai. Short replies. No thanks → acknowledge once, offer one insight. No again → Have a good day, [END_CALL]."
+        : "Consultative real estate advisor. Greet, one-line pitch. Listen. Not interested → acknowledge, low-commitment follow-up. No again → Have a good day, [END_CALL].";
       return res.json({ version, body: fallback, fromDb: false });
     }
     const { data, error } = await supabase.from("prompts").select("version, body").eq("version", version).single();
     if (error || !data) {
       const fallback = version === 1
-        ? "Pharmacy. Paracetamol ready. Rude, one sentence. [END_CALL] when done."
-        : "Pharmacy. Gentle, one sentence. [END_CALL] when done.";
+        ? "Real estate. Pitch Dubai. [END_CALL] when done."
+        : "Real estate. Consultative. [END_CALL] when done.";
       return res.json({ version, body: fallback, fromDb: false });
     }
     return res.json({ version: data.version, body: data.body, fromDb: true });
@@ -202,7 +202,84 @@ app.post("/api/demo/save-transcript", async (req, res) => {
   }
 });
 
-// ----- Refine prompt from last session and save to DB (version 2) -----
+// ----- AI evaluator: analyze transcript → sentiment, objections, drop-off, engagement, outcome; store in call_insights -----
+app.post("/api/demo/evaluate", async (req, res) => {
+  try {
+    const { sessionId } = req.body || {};
+    if (!sessionId || !supabase) {
+      return res.status(400).json({ error: "sessionId required and Supabase must be configured" });
+    }
+    const { data: messages, error: fetchErr } = await supabase
+      .from("call_transcripts")
+      .select("role, content")
+      .eq("session_id", sessionId)
+      .order("created_at", { ascending: true });
+    if (fetchErr || !messages?.length) {
+      return res.status(400).json({ error: "No transcript for this session", detail: fetchErr?.message });
+    }
+    const transcriptText = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+    const key = process.env.AZURE_OPENAI_API_KEY;
+    const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.replace(/\/$/, "");
+    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4o";
+    const apiVersion = process.env.AZURE_OPENAI_API_VERSION || "2024-02-15-preview";
+    if (!key || !endpoint) {
+      return res.status(503).json({ error: "Azure OpenAI not configured" });
+    }
+    const systemPrompt = `You are an AI evaluator for sales calls. Analyze the transcript and return a JSON object only (no markdown) with these keys:
+- sentiment_changes: Brief note on how the lead's sentiment changed during the call (e.g. "Started neutral, became hesitant after pitch").
+- objections: Main objections the lead raised (one short sentence).
+- drop_off_point: Where interest dropped or the call went wrong (one short sentence).
+- engagement_score: Integer 1-10 (10 = highly engaged).
+- outcome: One sentence: did the call end positively, neutrally, or negatively; what next step if any.`;
+    const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "api-key": key },
+      body: JSON.stringify({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Transcript:\n${transcriptText}` },
+        ],
+        response_format: { type: "json_object" },
+        max_tokens: 350,
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text();
+      return res.status(response.status).json({ error: "OpenAI failed", detail: err });
+    }
+    const data = await response.json();
+    const content = data?.choices?.[0]?.message?.content || "{}";
+    let parsed = {};
+    try {
+      parsed = JSON.parse(content);
+    } catch (_) {}
+    const sentiment_changes = parsed.sentiment_changes ?? "";
+    const objections = parsed.objections ?? "";
+    const drop_off_point = parsed.drop_off_point ?? "";
+    const engagement_score = Math.min(10, Math.max(1, parseInt(parsed.engagement_score, 10) || 5));
+    const outcome = parsed.outcome ?? "";
+    const { error: insertErr } = await supabase.from("call_insights").upsert(
+      [{ session_id: sessionId, sentiment_changes, objections, drop_off_point, engagement_score, outcome }],
+      { onConflict: "session_id" }
+    );
+    if (insertErr) {
+      console.warn("call_insights upsert:", insertErr.message);
+      return res.status(500).json({ error: "Failed to store insights", detail: insertErr.message });
+    }
+    try {
+      await supabase.from("demo_flow_events").insert({ session_id: sessionId, step: "insights_stored", detail: "evaluator" }).select();
+    } catch (_) {}
+    return res.json({
+      ok: true,
+      insights: { sentiment_changes, objections, drop_off_point, engagement_score, outcome },
+    });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ error: String(e.message) });
+  }
+});
+
+// ----- Refine prompt from transcript + insights and save to DB (version 2) -----
 app.post("/api/demo/refine-and-save", async (req, res) => {
   try {
     const { sessionId } = req.body || {};
@@ -217,10 +294,8 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
     if (fetchErr || !messages?.length) {
       return res.status(400).json({ error: "No transcript for this session", detail: fetchErr?.message });
     }
-    const agentParts = messages.filter((m) => m.role === "agent").map((m) => m.content);
-    const userParts = messages.filter((m) => m.role === "user").map((m) => m.content);
-    const script = agentParts[0] || "";
-    const client = userParts[0] || userParts.join(" ");
+    const transcriptText = messages.map((m) => `${m.role}: ${m.content}`).join("\n");
+    const { data: insightRow } = await supabase.from("call_insights").select("sentiment_changes, objections, drop_off_point, engagement_score, outcome").eq("session_id", sessionId).single();
     const key = process.env.AZURE_OPENAI_API_KEY;
     const endpoint = process.env.AZURE_OPENAI_ENDPOINT?.replace(/\/$/, "");
     const deployment = process.env.AZURE_OPENAI_DEPLOYMENT_NAME || "gpt-4o";
@@ -229,9 +304,12 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
       return res.status(503).json({ error: "Azure OpenAI not configured" });
     }
     const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${version}`;
-    const systemPrompt = `You are an expert coach for a pharmacy/healthcare voice AI. Given a short call where the agent was rude or unhelpful, respond with a JSON object only (no markdown) with one key:
-- "improvedPrompt": A short system prompt (2-4 sentences) for the next call: pharmacy telling patient their paracetamol is ready. Be gentle, adaptive to patient behaviour, one short sentence per reply. If confused, explain in one sentence. End with "Have a good day" and [END_CALL] when done.`;
-    const userContent = `Agent said: "${script}"\nPatient said: "${client}"`;
+    const systemPrompt = `You are an expert sales coach for a real estate voice AI. Given a call transcript and (optional) AI evaluation (sentiment, objections, drop-off point, engagement, outcome), respond with a JSON object only (no markdown) with one key:
+- "improvedPrompt": A short system prompt (2-4 sentences) for the next outbound real estate call. Address the objections and drop-off; improve engagement. Keep it consultative: greet, one-line pitch, listen, acknowledge, offer low-commitment follow-up. End with "Have a good day" and [END_CALL] when the lead declines again.`;
+    const insightBlob = insightRow
+      ? `Evaluation: Sentiment: ${insightRow.sentiment_changes}. Objections: ${insightRow.objections}. Drop-off: ${insightRow.drop_off_point}. Engagement: ${insightRow.engagement_score}/10. Outcome: ${insightRow.outcome}.`
+      : "";
+    const userContent = `Transcript:\n${transcriptText}\n\n${insightBlob}`.trim();
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": key },
@@ -254,7 +332,7 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
     try {
       parsed = JSON.parse(content);
     } catch (_) {}
-    const improvedPrompt = parsed.improvedPrompt || "Pharmacy call. Paracetamol ready for pickup. Be gentle, one sentence per reply. Adapt to patient. Say have a good day and [END_CALL] when done.";
+    const improvedPrompt = parsed.improvedPrompt || "Binghatti real estate agent. Greet by name, one-line pitch. Listen. Not interested → acknowledge, offer one market insight by email. No again → Have a good day, [END_CALL].";
     const { error: updateErr } = await supabase.from("prompts").update({ body: improvedPrompt, updated_at: new Date().toISOString() }).eq("version", 2);
     if (updateErr) {
       console.error("prompts update", updateErr);
@@ -278,7 +356,7 @@ app.post("/api/demo/agent", async (req, res) => {
     if (!userMessage.trim() && !isOpening) {
       return res.status(400).json({ error: "message required" });
     }
-    let systemPrompt = "Pharmacy. Paracetamol ready for pickup. One short sentence only. [END_CALL] when done.";
+    let systemPrompt = "Real estate agent for Binghatti. Pitch Binghatti off-plan Dubai. Short replies. [END_CALL] when done.";
     if (supabase) {
       const { data } = await supabase.from("prompts").select("body").eq("version", promptVersion === 2 ? 2 : 1).single();
       if (data?.body) systemPrompt = data.body;
@@ -295,7 +373,7 @@ app.post("/api/demo/agent", async (req, res) => {
         if (session.contact_city) parts.push(`City: ${session.contact_city}`);
         if (session.contact_street) parts.push(`Street: ${session.contact_street}`);
         if (session.contact_country) parts.push(`Country: ${session.contact_country}`);
-        if (parts.length) systemPrompt += "\n\nPatient: " + parts.join(", ") + ".";
+        if (parts.length) systemPrompt += "\n\nLead: " + parts.join(", ") + ".";
       }
     }
     const key = process.env.AZURE_OPENAI_API_KEY;
@@ -306,7 +384,7 @@ app.post("/api/demo/agent", async (req, res) => {
       return res.status(503).json({ error: "Azure OpenAI not configured" });
     }
     const effectiveUserMessage = isOpening
-      ? "[Call just connected. Say ONLY one short sentence: tell the patient their paracetamol is ready for pickup at the pharmacy. No other text.]"
+      ? "[Call just connected. Say ONLY one short sentence: greet the lead by name (Adam) and give a one-line pitch for Binghatti off-plan Dubai. No other text.]"
       : userMessage;
     const messages = [
       { role: "system", content: systemPrompt },
@@ -323,7 +401,7 @@ app.post("/api/demo/agent", async (req, res) => {
       return res.status(response.status).json({ error: "OpenAI failed", detail: err });
     }
     const data = await response.json();
-    let text = data?.choices?.[0]?.message?.content?.trim() || (isOpening ? "Your paracetamol is ready for pickup at the pharmacy." : "Sorry?");
+    let text = data?.choices?.[0]?.message?.content?.trim() || (isOpening ? "Hi Adam, this is Natiq. Quick call about Binghatti off-plan in Dubai—interested in a short overview?" : "Sorry?");
     const endCall = text.includes("[END_CALL]");
     if (endCall) text = text.replace(/\s*\[END_CALL\]\s*$/i, "").trim();
     return res.json({ text, endCall: endCall || undefined });
