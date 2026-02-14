@@ -1,0 +1,23 @@
+{
+  "name": "ruya-backend",
+  "version": "1.0.0",
+  "description": "Self-Improving Voice Sales Agent Backend",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "setup-db": "node scripts/setup-database.js",
+    "test-webhook": "node scripts/test-webhook.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.7",
+    "@azure/openai": "^2.0.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.4.1",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3"
+  }
+}
