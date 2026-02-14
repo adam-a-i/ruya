@@ -10,8 +10,10 @@ const wrongMetrics = [
 
 const ProblemSection = () => {
   return (
-    <section className="relative py-32 px-6">
-      <div className="max-w-4xl mx-auto">
+    <section className="relative py-32 px-6 overflow-hidden">
+      <div className="absolute top-1/4 left-[-10%] w-[400px] h-[400px] rounded-full opacity-[0.1] pointer-events-none blur-[120px]" style={{ background: "radial-gradient(circle, rgba(239,68,68,0.5) 0%, transparent 70%)" }} />
+      <div className="absolute bottom-1/4 right-[-5%] w-[350px] h-[350px] rounded-full opacity-[0.12] pointer-events-none blur-[120px]" style={{ background: "radial-gradient(circle, rgba(168,85,247,0.5) 0%, transparent 70%)" }} />
+      <div className="max-w-4xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -21,10 +23,10 @@ const ProblemSection = () => {
           <p className="text-primary font-medium text-sm uppercase tracking-widest mb-4">
             The Problem
           </p>
-          <h2 className="text-3xl sm:text-5xl font-bold leading-tight mb-6">
-            Voice AI startups optimize for
+          <h2 className="text-3xl sm:text-5xl font-sans font-bold leading-tight mb-6">
+            <span className="font-sans font-bold">Voice AI startups optimize for</span>
             <br />
-            <span className="text-muted-foreground">the wrong metrics.</span>
+            <span className="font-display text-muted-foreground">the wrong metrics.</span>
           </h2>
         </motion.div>
 

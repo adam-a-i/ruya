@@ -5,14 +5,16 @@ import { ArrowRight, TrendingUp } from "lucide-react";
 const HeroSection = () => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Glow effect */}
+      {/* Gradient blobs — blurred, low opacity */}
+      <div className="absolute top-[10%] right-[15%] w-[min(80vw,500px)] h-[min(80vw,500px)] rounded-full opacity-[0.12] pointer-events-none blur-[100px]" style={{ background: "radial-gradient(circle, rgba(249,115,22,0.5) 0%, transparent 70%)" }} />
+      <div className="absolute bottom-[20%] left-[10%] w-[min(70vw,400px)] h-[min(70vw,400px)] rounded-full opacity-[0.1] pointer-events-none blur-[100px]" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.5) 0%, transparent 70%)" }} />
       <div className="absolute inset-0 bg-gradient-glow pointer-events-none" />
       
       {/* Grid pattern */}
       <div
         className="absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage: `linear-gradient(hsl(174 72% 52%) 1px, transparent 1px), linear-gradient(90deg, hsl(174 72% 52%) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(hsl(0 0% 100% / 0.08) 1px, transparent 1px), linear-gradient(90deg, hsl(0 0% 100% / 0.08) 1px, transparent 1px)`,
           backgroundSize: "60px 60px",
         }}
       />
@@ -22,7 +24,7 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 text-primary text-sm font-medium mb-8"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 text-primary text-sm font-bold mb-8"
         >
           <TrendingUp className="w-4 h-4" />
           Self-improving AI sales agent
@@ -32,20 +34,20 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.1 }}
-          className="text-5xl sm:text-6xl lg:text-8xl font-bold tracking-tight leading-[0.95] mb-6"
+          className="text-5xl sm:text-6xl lg:text-8xl font-sans font-bold tracking-tight leading-[0.95] mb-6"
         >
-          From automation
+          <span className="font-sans font-bold">From automation</span>
           <br />
-          <span className="text-gradient-primary">to optimization.</span>
+          <span className="font-display text-gradient-primary">to optimization.</span>
         </motion.h1>
 
         <motion.p
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.25 }}
-          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed"
+          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed font-sans"
         >
-          Ruya is a voice AI that doesn't just call — it learns. Every conversation
+          Natiq is a voice AI that doesn't just call — it learns. Every conversation
           makes it better at closing deals. Built for real estate.
         </motion.p>
 

@@ -30,8 +30,10 @@ const steps = [
 
 const HowItWorksSection = () => {
   return (
-    <section className="relative py-32 px-6">
-      <div className="max-w-4xl mx-auto">
+    <section className="relative py-32 px-6 overflow-hidden">
+      <div className="absolute top-[20%] right-[-5%] w-[380px] h-[380px] rounded-full opacity-[0.11] pointer-events-none blur-[110px]" style={{ background: "radial-gradient(circle, rgba(59,130,246,0.5) 0%, transparent 70%)" }} />
+      <div className="absolute bottom-[15%] left-[-8%] w-[360px] h-[360px] rounded-full opacity-[0.1] pointer-events-none blur-[110px]" style={{ background: "radial-gradient(circle, rgba(249,115,22,0.5) 0%, transparent 70%)" }} />
+      <div className="max-w-4xl mx-auto relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -42,8 +44,9 @@ const HowItWorksSection = () => {
           <p className="text-primary font-medium text-sm uppercase tracking-widest mb-4">
             How It Works
           </p>
-          <h2 className="text-3xl sm:text-5xl font-bold">
-            A closed feedback loop.
+          <h2 className="text-3xl sm:text-5xl font-sans font-bold">
+            <span className="font-sans font-bold">A closed </span>
+            <span className="font-display">feedback loop.</span>
           </h2>
         </motion.div>
 

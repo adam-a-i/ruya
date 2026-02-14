@@ -9,13 +9,10 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 glass">
-        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="text-xl font-bold tracking-tight font-[Space_Grotesk]">
-            ruya<span className="text-primary">.</span>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            Ruya Hackathon 2025
-          </div>
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center">
+          <a href="/" className="flex items-center">
+            <img src="/natiq.svg" alt="Natiq" className="h-8 w-auto" />
+          </a>
         </div>
       </nav>
 

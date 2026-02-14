@@ -2,53 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+/* Natiq theme: Inter (bold) + Instrument Serif (italic). */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
 
 @layer base {
   :root {
-    --background: 220 20% 4%;
-    --foreground: 210 20% 92%;
+    /* --- MONOCHROMATIC THEME (grays only) --- */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 92%;
 
-    --card: 220 18% 8%;
-    --card-foreground: 210 20% 92%;
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 92%;
 
-    --popover: 220 18% 8%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 92%;
 
-    --primary: 174 72% 52%;
-    --primary-foreground: 220 20% 4%;
+    --primary: 0 0% 96%;
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 220 16% 14%;
-    --secondary-foreground: 210 20% 80%;
+    --secondary: 0 0% 14%;
+    --secondary-foreground: 0 0% 80%;
 
-    --muted: 220 14% 12%;
-    --muted-foreground: 215 12% 50%;
+    --muted: 0 0% 12%;
+    --muted-foreground: 0 0% 50%;
 
-    --accent: 24 90% 58%;
-    --accent-foreground: 220 20% 4%;
+    --accent: 0 0% 20%;
+    --accent-foreground: 0 0% 96%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 0% 55%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 220 14% 16%;
-    --input: 220 14% 16%;
-    --ring: 174 72% 52%;
+    --border: 0 0% 16%;
+    --input: 0 0% 16%;
+    --ring: 0 0% 70%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 220 18% 6%;
-    --sidebar-foreground: 210 20% 80%;
-    --sidebar-primary: 174 72% 52%;
-    --sidebar-primary-foreground: 220 20% 4%;
-    --sidebar-accent: 220 14% 12%;
-    --sidebar-accent-foreground: 210 20% 80%;
-    --sidebar-border: 220 14% 16%;
-    --sidebar-ring: 174 72% 52%;
+    --sidebar-background: 0 0% 6%;
+    --sidebar-foreground: 0 0% 80%;
+    --sidebar-primary: 0 0% 96%;
+    --sidebar-primary-foreground: 0 0% 6%;
+    --sidebar-accent: 0 0% 13%;
+    --sidebar-accent-foreground: 0 0% 80%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 0 0% 70%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(174 72% 52%), hsl(190 80% 42%));
-    --gradient-accent: linear-gradient(135deg, hsl(24 90% 58%), hsl(14 85% 52%));
-    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(174 72% 52% / 0.15), transparent 60%);
-    --shadow-glow: 0 0 60px -12px hsl(174 72% 52% / 0.3);
+    /* Gray gradients for text (monochrome) */
+    --gradient-primary: linear-gradient(135deg, hsl(0 0% 90%), hsl(0 0% 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(0 0% 75%), hsl(0 0% 50%));
+    --gradient-natiq: linear-gradient(90deg, hsl(0 0% 85%), hsl(0 0% 55%));
+
+    --gradient-glow: radial-gradient(ellipse at 50% 0%, hsl(0 0% 100% / 0.04), transparent 70%);
+    --shadow-glow: 0 0 80px -20px hsl(0 0% 100% / 0.06);
   }
 }
 
@@ -60,23 +65,40 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', sans-serif;
+    font-weight: 400;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
   }
 }
 
 @layer utilities {
+  .font-display {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+  }
+
+  /* Cool Tone Gradient (Blue -> Purple) */
   .text-gradient-primary {
-    background: linear-gradient(135deg, hsl(174 72% 52%), hsl(190 80% 62%));
+    background: var(--gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
+  /* Warm Tone Gradient (Coral -> Orange) */
   .text-gradient-accent {
-    background: linear-gradient(135deg, hsl(24 90% 58%), hsl(14 85% 62%));
+    background: var(--gradient-accent);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Full Brand Spectrum Gradient */
+  .text-gradient-natiq {
+    background: var(--gradient-natiq);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -87,12 +109,19 @@
   }
 
   .glow-border {
-    box-shadow: inset 0 0 0 1px hsl(174 72% 52% / 0.2), var(--shadow-glow);
+    box-shadow: inset 0 0 0 1px hsl(0 0% 100% / 0.08), var(--shadow-glow);
   }
 
+  /* Glass effect with a hint of blue */
   .glass {
-    background: hsl(220 18% 8% / 0.6);
+    background: hsl(0 0% 8% / 0.6);
     backdrop-filter: blur(20px);
-    border: 1px solid hsl(220 14% 16% / 0.8);
+    border: 1px solid hsl(0 0% 16% / 0.8);
   }
+
+  /* Gradient blobs (for section backgrounds): use with blur and low opacity */
+  .blob-orange { background: radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%); }
+  .blob-red { background: radial-gradient(circle, rgba(239,68,68,0.15) 0%, transparent 70%); }
+  .blob-blue { background: radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%); }
+  .blob-purple { background: radial-gradient(circle, rgba(168,85,247,0.15) 0%, transparent 70%); }
 }
