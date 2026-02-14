@@ -54,7 +54,7 @@ npm start
 ✅ Server running on http://localhost:3000
 ✅ Azure OpenAI: https://kuecopenai.openai.azure.com
 ✅ Supabase: https://mtmcvxuxoifkcugqjcaa.supabase.co
-✅ Vapi Assistant: abf264bb-58cf-410c-845e-764b27c51677
+✅ Vapi Assistant: [configured in .env]
 ```
 
 ## 4. Test Backend with Sample Call
@@ -91,7 +91,7 @@ ngrok http 3000
 
 **Configure in Vapi:**
 1. Go to: https://dashboard.vapi.ai
-2. Find your assistant: `abf264bb-58cf-410c-845e-764b27c51677`
+2. Find your assistant ID in Vapi dashboard
 3. Look for "Server URL" or "Webhooks" settings
 4. Set webhook URL to: `https://abc123.ngrok.io/webhook/call-completed`
 5. Save

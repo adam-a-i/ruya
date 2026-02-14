@@ -78,8 +78,8 @@ cd backend && npm run test-webhook
 ```env
 ✅ Azure OpenAI: https://kuecopenai.openai.azure.com (GPT-4o)
 ✅ Supabase: https://mtmcvxuxoifkcugqjcaa.supabase.co
-✅ Vapi API Key: e4d4bae5-301d-4f96-ab50-701e27732b33
-✅ Vapi Assistant: abf264bb-58cf-410c-845e-764b27c51677
+✅ Vapi API Key: [configured in .env]
+✅ Vapi Assistant: [configured in .env]
 ```
 
 All credentials are configured in `backend/.env` ✅

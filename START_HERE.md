@@ -62,7 +62,7 @@ npm start
 ✅ Server running on http://localhost:3000
 ✅ Azure OpenAI: https://kuecopenai.openai.azure.com
 ✅ Supabase: https://mtmcvxuxoifkcugqjcaa.supabase.co
-✅ Vapi Assistant: abf264bb-58cf-410c-845e-764b27c51677
+✅ Vapi Assistant: [configured in .env]
 ```
 
 **✅ Check:** Server starts without errors
@@ -198,7 +198,7 @@ Forwarding  https://abc123.ngrok.io -> http://localhost:3000
 ### Configure Vapi Webhook
 
 1. Go to: https://dashboard.vapi.ai
-2. Find your assistant: `abf264bb-58cf-410c-845e-764b27c51677`
+2. Find your assistant ID in Vapi dashboard
 3. Look for **Server URL** or **Webhooks** section
 4. Paste: `https://your-ngrok-url.ngrok.io/webhook/call-completed`
 5. Save
