@@ -2,8 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Natiq theme: Inter (bold) + Instrument Serif (italic). */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap');
+/* Natiq theme: Inter + Cascadia Code */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+@font-face {
+  font-family: 'Cascadia Code';
+  src: url('https://cdn.jsdelivr.net/gh/microsoft/cascadia-code@main/fonts/static/CascadiaCode-Regular.woff2') format('woff2');
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
 
 @layer base {
   :root {
@@ -76,8 +84,7 @@
 
 @layer utilities {
   .font-display {
-    font-family: 'Instrument Serif', serif;
-    font-style: italic;
+    font-family: 'Cascadia Code', monospace;
   }
 
   /* Cool Tone Gradient (Blue -> Purple) */

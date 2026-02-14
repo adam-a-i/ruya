@@ -15,7 +15,7 @@ export default {
     extend: {
       fontFamily: {
         sans: ["Inter", "sans-serif"],
-        display: ["Instrument Serif", "serif"],
+        display: ["Cascadia Code", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

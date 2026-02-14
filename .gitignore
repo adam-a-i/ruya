@@ -1,0 +1,21 @@
+# Dependencies
+node_modules
+
+# Env and secrets (do not commit)
+.env
+.env.local
+.env.*.local
+
+# Logs and build
+*.log
+logs
+dist
+
+# OS and editor
+.DS_Store
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?

@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, TrendingUp } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 const HeroSection = () => {
   return (
@@ -24,10 +25,10 @@ const HeroSection = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/20 bg-primary/5 text-primary text-sm font-bold mb-8"
+          className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full border border-border bg-card/80 text-muted-foreground text-sm font-medium mb-8"
         >
-          <TrendingUp className="w-4 h-4" />
-          Self-improving AI sales agent
+          <span>Built for</span>
+          <img src="/RUYA.svg" alt="RUYA" className="h-5 w-auto brightness-0 invert" />
         </motion.div>
 
         <motion.h1
@@ -57,9 +58,11 @@ const HeroSection = () => {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="flex flex-col sm:flex-row items-center justify-center gap-4"
         >
-          <Button variant="hero" size="lg" className="text-base px-8 py-6">
-            See it in action
-            <ArrowRight className="w-4 h-4 ml-1" />
+          <Button variant="hero" size="lg" className="text-base px-8 py-6" asChild>
+            <Link to="/demo">
+              See it in action
+              <ArrowRight className="w-4 h-4 ml-1" />
+            </Link>
           </Button>
           <Button variant="heroOutline" size="lg" className="text-base px-8 py-6">
             How it works
