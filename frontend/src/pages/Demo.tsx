@@ -436,7 +436,7 @@ export default function Demo() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-6"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2">Real estate demo</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2">Natiq Binghatti Agent</h1>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             One call. Agent calls lead → recorded & transcribed → AI evaluates → insights stored → prompt updated → next calls use improved strategy. Call ends when you say you're not interested (agent says goodbye respectfully) or you tap End.
           </p>
