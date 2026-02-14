@@ -16,10 +16,13 @@ import {
   Grid3X3,
   Volume1,
   PhoneOff,
+  Check,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type CallPhase = "idle" | "in-call" | "refine" | "call-again";
+type FlowStep = "call" | "saving" | "saved" | "refining" | "refined";
 
 async function getPrompt(version: 1 | 2) {
   const res = await fetch(`/api/demo/prompt?version=${version}`);
@@ -27,7 +30,7 @@ async function getPrompt(version: 1 | 2) {
   return { body: data.body || "", fromDb: data.fromDb };
 }
 
-// Demo contact attributes (from number lookup / CRM) — agent uses these to personalize
+// Demo: pharmacy calling a patient (contact from CRM / number lookup)
 const DEMO_CONTACT = {
   name: "Saif Alblooshi",
   phone: "+971 56 661 6884",
@@ -37,6 +40,7 @@ const DEMO_CONTACT = {
   street: "Al Markaziyah, Electra Street",
   country: "United Arab Emirates",
 };
+
 
 async function startSession(promptVersion: 1 | 2, ring: boolean, contact?: typeof DEMO_CONTACT) {
   const res = await fetch("/api/demo/session/start", {
@@ -204,6 +208,7 @@ export default function Demo() {
   const [ringPhone, setRingPhone] = useState(false);
   const [callStartTime, setCallStartTime] = useState<number | null>(null);
   const [callDurationSec, setCallDurationSec] = useState(0);
+  const [flowStep, setFlowStep] = useState<FlowStep>("call");
   const openingPlayedRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { listening, supported, interim, start, stop, setOnFinal } = useSpeechRecognition();
@@ -241,14 +246,17 @@ export default function Demo() {
 
   const endCallAndSave = useCallback(async () => {
     if (!sessionId) return;
+    setFlowStep("saving");
     setLoading(true);
     setError(null);
     try {
       await endSession(sessionId);
       await saveTranscript(sessionId, transcript);
+      setFlowStep("saved");
       setPhase("refine");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to end call");
+      setFlowStep("call");
     } finally {
       setLoading(false);
     }
@@ -273,8 +281,10 @@ export default function Demo() {
         setTranscript(newLines);
         await playTts(reply);
         if (shouldEnd) {
+          setFlowStep("saving");
           await endSession(sessionId);
           await saveTranscript(sessionId, newLines.map((l) => ({ role: l.role, text: l.text })));
+          setFlowStep("saved");
           setPhase("refine");
         }
       } catch (e) {
@@ -294,7 +304,7 @@ export default function Demo() {
     return () => setOnFinal(null);
   }, [phase, setOnFinal, sendUserMessage]);
 
-  // Call duration timer
+  // Call duration timer (display only; call ends when agent sends [END_CALL] or user taps End)
   useEffect(() => {
     if (callStartTime == null || (phase !== "in-call" && phase !== "call-again")) return;
     const t = setInterval(() => {
@@ -328,6 +338,7 @@ export default function Demo() {
   const startFirstCall = async () => {
     setError(null);
     setLoading(true);
+    setFlowStep("call");
     openingPlayedRef.current = false;
     try {
       const id = await startSession(1, ringPhone);
@@ -350,6 +361,7 @@ export default function Demo() {
 
   const doRefine = async () => {
     if (!sessionId) return;
+    setFlowStep("refining");
     setLoading(true);
     setError(null);
     try {
@@ -357,8 +369,10 @@ export default function Demo() {
       setRefinedPrompt(improved);
       const { body } = await getPrompt(2);
       setPromptV2(body);
+      setFlowStep("refined");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to refine");
+      setFlowStep("saved");
     } finally {
       setLoading(false);
     }
@@ -367,6 +381,7 @@ export default function Demo() {
   const startSecondCall = async () => {
     setError(null);
     setLoading(true);
+    setFlowStep("call");
     openingPlayedRef.current = false;
     try {
       const id = await startSession(2, ringPhone);
@@ -406,13 +421,33 @@ export default function Demo() {
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-10"
+          className="text-center mb-6"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold mb-2">Real demo</h1>
+          <h1 className="text-3xl sm:text-4xl font-bold mb-2">Pharmacy demo</h1>
           <p className="text-muted-foreground">
-            First call uses a baseline (pushy) prompt. You talk via laptop mic; the agent speaks with ElevenLabs. Then we refine the prompt and you can call again with the improved script.
+            First call: pharmacy says your paracetamol is ready. Agent is rude and may hang up while you talk. Then we save to Supabase, refine the prompt, and you call again with a gentle, adaptive script.
           </p>
         </motion.div>
+
+        {/* Flow: what is being done (saving in Supabase, refining, etc.) */}
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-6 py-3 px-4 rounded-xl bg-muted/40 border border-border">
+          <span className={`flex items-center gap-1.5 text-sm font-medium ${flowStep === "call" && isInCall ? "text-primary" : ["saving", "saved", "refining", "refined"].includes(flowStep) || phase === "refine" ? "text-muted-foreground" : "text-muted-foreground"}`}>
+            {(["saved", "refining", "refined"].includes(flowStep) || phase === "refine") ? <Check className="h-4 w-4 text-primary" /> : isInCall ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isInCall ? "Call" : phase === "refine" || ["saving", "saved", "refining", "refined"].includes(flowStep) ? "Call ✓" : "1. Call"}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/60" />
+          <span className={`flex items-center gap-1.5 text-sm ${flowStep === "saving" ? "text-primary font-medium" : flowStep === "saved" || flowStep === "refining" || flowStep === "refined" ? "text-muted-foreground" : "text-muted-foreground/70"}`}>
+            {flowStep === "saved" || flowStep === "refining" || flowStep === "refined" ? <Check className="h-4 w-4 text-primary" /> : flowStep === "saving" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {flowStep === "saving" ? "Saving to Supabase…" : flowStep === "saved" || flowStep === "refining" || flowStep === "refined" ? "Saved ✓" : "2. Save transcript"}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/60" />
+          <span className={`flex items-center gap-1.5 text-sm ${flowStep === "refining" ? "text-primary font-medium" : flowStep === "refined" ? "text-muted-foreground" : "text-muted-foreground/70"}`}>
+            {flowStep === "refined" ? <Check className="h-4 w-4 text-primary" /> : flowStep === "refining" ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {flowStep === "refining" ? "Refining prompt…" : flowStep === "refined" ? "Refined ✓" : "3. Refine prompt"}
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted-foreground/60" />
+          <span className="text-sm text-muted-foreground/70">4. Call again</span>
+        </div>
 
         {error && (
           <motion.div
@@ -436,7 +471,7 @@ export default function Demo() {
               <div className="rounded-xl border border-border bg-card p-6">
                 <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                   <MessageSquare className="h-4 w-4" />
-                  Baseline prompt (first call) — direct sales pitch
+                  First call — pharmacy (rude, may hang up while you talk)
                 </p>
                 <p className="text-foreground text-sm whitespace-pre-wrap font-mono bg-muted/50 p-4 rounded-lg">
                   {promptV1 || "Loading…"}
@@ -446,7 +481,7 @@ export default function Demo() {
                 )}
               </div>
               <div className="rounded-xl border border-border bg-muted/30 p-4">
-                <p className="text-sm font-medium text-muted-foreground mb-2">Prospect (demo) — agent sees this</p>
+                <p className="text-sm font-medium text-muted-foreground mb-2">Patient (demo) — agent sees this</p>
                 <p className="text-sm text-foreground">
                   {DEMO_CONTACT.name} · {DEMO_CONTACT.age} · {DEMO_CONTACT.region} · {DEMO_CONTACT.city} · {DEMO_CONTACT.street} · {DEMO_CONTACT.phone}
                 </p>
@@ -473,7 +508,7 @@ export default function Demo() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Your laptop mic and speakers are used. The agent will reply with ElevenLabs voice. Say something as the &ldquo;client&rdquo; to get a response.
+                Agent speaks first (paracetamol ready). You play the patient—reply with mic or type. Call ends when the agent says goodbye or you tap End. Rude agent may hang up mid-sentence.
               </p>
             </motion.div>
           )}
@@ -491,13 +526,12 @@ export default function Demo() {
                 {/* Status bar strip (iOS notch area) */}
                 <div className="h-10 flex items-center justify-center gap-2 pt-2">
                   <span className="text-white/80 text-xs font-medium">{formatDuration(callDurationSec)}</span>
-                  <span className="text-white/60 text-xs">mobile</span>
                 </div>
                 {/* Contact + number */}
                 <div className="px-6 pt-8 pb-4 text-center">
                   <h2 className="text-2xl font-semibold text-white tracking-tight">{DEMO_CONTACT.name}</h2>
                   <p className="text-white/70 text-sm mt-1">{DEMO_CONTACT.phone}</p>
-                  <p className="text-white/50 text-xs mt-0.5">{DEMO_CONTACT.city}, {DEMO_CONTACT.region}</p>
+                  <p className="text-white/50 text-xs mt-0.5">Patient · {DEMO_CONTACT.city}, {DEMO_CONTACT.region}</p>
                 </div>
                 {/* Live label when agent is speaking */}
                 {(loading || ttsPlaying) && (
@@ -584,7 +618,7 @@ export default function Demo() {
                   </button>
                 </div>
               </div>
-              <p className="text-center text-muted-foreground text-xs mt-3">End call saves transcript and moves to refine</p>
+              <p className="text-center text-muted-foreground text-xs mt-3">Tap End to save transcript to Supabase.</p>
             </motion.div>
           )}
 
@@ -599,7 +633,9 @@ export default function Demo() {
               <div className="rounded-xl border border-border bg-card p-6">
                 <p className="text-sm font-medium text-muted-foreground mb-2 flex items-center gap-2">
                   <Database className="h-4 w-4" />
-                  Transcript saved to Supabase. Refine the prompt from this conversation.
+                  {flowStep === "saved" || flowStep === "refining" || flowStep === "refined"
+                    ? "Transcript saved to Supabase. Refine the prompt to get a gentle, adaptive pharmacy script."
+                    : "Saving transcript to Supabase…"}
                 </p>
               </div>
               <Button
@@ -610,7 +646,7 @@ export default function Demo() {
                 className="gap-2"
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                Refine prompt
+                {flowStep === "refining" ? "Refining prompt…" : "Refine prompt"}
               </Button>
               {refinedPrompt && (
                 <motion.div
@@ -618,7 +654,7 @@ export default function Demo() {
                   animate={{ opacity: 1, y: 0 }}
                   className="rounded-xl border border-primary/20 bg-primary/5 p-6"
                 >
-                  <p className="text-sm font-medium text-primary mb-2">Improved prompt (saved as version 2)</p>
+                  <p className="text-sm font-medium text-primary mb-2">Improved prompt (saved as version 2 in Supabase)</p>
                   <p className="text-foreground text-sm whitespace-pre-wrap">{refinedPrompt}</p>
                   <Button
                     variant="hero"
@@ -628,7 +664,7 @@ export default function Demo() {
                     className="gap-2 mt-4"
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}
-                    Call again with improved prompt
+                    Call again (gentle, adaptive pharmacy)
                   </Button>
                 </motion.div>
               )}

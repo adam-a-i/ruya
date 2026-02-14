@@ -87,15 +87,15 @@ app.get("/api/demo/prompt", async (req, res) => {
     const version = Math.max(1, Math.min(2, parseInt(req.query.version, 10) || 1));
     if (!supabase) {
       const fallback = version === 1
-        ? "Real estate agent. Speak first: short greeting + one-line pitch. No thanks → insist once, offer to go over one thing. No again → have a good day, [END_CALL]. Keep replies 1-2 sentences."
-        : "Friendly advisor. Speak first: greet by name, one-line pitch. No thanks → acknowledge, offer one market snapshot. No again → have a good day, [END_CALL]. Brief.";
+        ? "Pharmacy. Tell patient paracetamol is ready. Be blunt, one sentence. Hang up with [END_CALL] even if they talk."
+        : "Pharmacy. Paracetamol ready. Be gentle, one sentence. Adapt to user. Goodbye then [END_CALL].";
       return res.json({ version, body: fallback, fromDb: false });
     }
     const { data, error } = await supabase.from("prompts").select("version, body").eq("version", version).single();
     if (error || !data) {
       const fallback = version === 1
-        ? "Real estate agent. Speak first; no thanks → insist once; no again → have a good day [END_CALL]. Brief."
-        : "Friendly advisor. Speak first; no again → have a good day [END_CALL]. Brief.";
+        ? "Pharmacy. Paracetamol ready. Rude, one sentence. [END_CALL] when done."
+        : "Pharmacy. Gentle, one sentence. [END_CALL] when done.";
       return res.json({ version, body: fallback, fromDb: false });
     }
     return res.json({ version: data.version, body: data.body, fromDb: true });
@@ -191,6 +191,8 @@ app.post("/api/demo/save-transcript", async (req, res) => {
         console.warn("Supabase save-transcript:", error.message);
         return res.status(200).json({ saved: false, error: error.message });
       }
+      const { error: flowErr } = await supabase.from("demo_flow_events").insert({ session_id: sessionId, step: "transcript_saved", detail: `${rows.length} lines` }).select();
+      if (flowErr) console.warn("demo_flow_events insert:", flowErr.message);
       return res.json({ saved: true, ids: data?.map((d) => d.id) || [] });
     }
     return res.status(400).json({ error: "sessionId required for save-transcript", saved: false });
@@ -227,9 +229,9 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
       return res.status(503).json({ error: "Azure OpenAI not configured" });
     }
     const url = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${version}`;
-    const systemPrompt = `You are an expert sales coach for a voice AI that pitches real estate. Given a short conversation, respond with a JSON object only (no markdown) with keys:
-- "improvedPrompt": A short, concrete system prompt (2-4 sentences) for the next call: acknowledge prospect's situation first, offer one low-commitment follow-up (e.g. one market insight via email/WhatsApp), keep it brief and consultative.`;
-    const userContent = `Agent said: "${script}"\nProspect said: "${client}"`;
+    const systemPrompt = `You are an expert coach for a pharmacy/healthcare voice AI. Given a short call where the agent was rude or unhelpful, respond with a JSON object only (no markdown) with one key:
+- "improvedPrompt": A short system prompt (2-4 sentences) for the next call: pharmacy telling patient their paracetamol is ready. Be gentle, adaptive to patient behaviour, one short sentence per reply. If confused, explain in one sentence. End with "Have a good day" and [END_CALL] when done.`;
+    const userContent = `Agent said: "${script}"\nPatient said: "${client}"`;
     const response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": key },
@@ -239,7 +241,7 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
           { role: "user", content: userContent },
         ],
         response_format: { type: "json_object" },
-        max_tokens: 400,
+        max_tokens: 300,
       }),
     });
     if (!response.ok) {
@@ -252,12 +254,14 @@ app.post("/api/demo/refine-and-save", async (req, res) => {
     try {
       parsed = JSON.parse(content);
     } catch (_) {}
-    const improvedPrompt = parsed.improvedPrompt || "Acknowledge their situation. Offer one short market insight with no commitment. Ask for email or WhatsApp.";
+    const improvedPrompt = parsed.improvedPrompt || "Pharmacy call. Paracetamol ready for pickup. Be gentle, one sentence per reply. Adapt to patient. Say have a good day and [END_CALL] when done.";
     const { error: updateErr } = await supabase.from("prompts").update({ body: improvedPrompt, updated_at: new Date().toISOString() }).eq("version", 2);
     if (updateErr) {
       console.error("prompts update", updateErr);
       return res.status(500).json({ error: "Failed to save refined prompt", detail: updateErr.message });
     }
+    const { error: flowErr } = await supabase.from("demo_flow_events").insert({ session_id: sessionId, step: "prompt_refined", detail: "version 2 updated" }).select();
+    if (flowErr) console.warn("demo_flow_events insert:", flowErr.message);
     return res.json({ ok: true, improvedPrompt });
   } catch (e) {
     console.error(e);
@@ -274,11 +278,12 @@ app.post("/api/demo/agent", async (req, res) => {
     if (!userMessage.trim() && !isOpening) {
       return res.status(400).json({ error: "message required" });
     }
-    let systemPrompt = "Real estate agent. Be brief. Speak first when call connects; if they say no thanks insist once then offer to go over one thing; if no again say have a good day and [END_CALL].";
+    let systemPrompt = "Pharmacy. Paracetamol ready for pickup. One short sentence only. [END_CALL] when done.";
     if (supabase) {
       const { data } = await supabase.from("prompts").select("body").eq("version", promptVersion === 2 ? 2 : 1).single();
       if (data?.body) systemPrompt = data.body;
     }
+    systemPrompt += "\n\nSTRICT: Reply in ONE short sentence only. No paragraphs, no elaboration.";
     if (sessionId && supabase) {
       const { data: session } = await supabase.from("call_sessions").select("contact_name, contact_phone, contact_age, contact_region, contact_city, contact_street, contact_country").eq("id", sessionId).single();
       if (session && (session.contact_name || session.contact_phone || session.contact_region || session.contact_city)) {
@@ -290,7 +295,7 @@ app.post("/api/demo/agent", async (req, res) => {
         if (session.contact_city) parts.push(`City: ${session.contact_city}`);
         if (session.contact_street) parts.push(`Street: ${session.contact_street}`);
         if (session.contact_country) parts.push(`Country: ${session.contact_country}`);
-        if (parts.length) systemPrompt += "\n\nProspect: " + parts.join(", ") + ".";
+        if (parts.length) systemPrompt += "\n\nPatient: " + parts.join(", ") + ".";
       }
     }
     const key = process.env.AZURE_OPENAI_API_KEY;
@@ -301,7 +306,7 @@ app.post("/api/demo/agent", async (req, res) => {
       return res.status(503).json({ error: "Azure OpenAI not configured" });
     }
     const effectiveUserMessage = isOpening
-      ? "[Call just connected. Say ONLY your opening: one short greeting using their name and one-sentence pitch. No other text.]"
+      ? "[Call just connected. Say ONLY one short sentence: tell the patient their paracetamol is ready for pickup at the pharmacy. No other text.]"
       : userMessage;
     const messages = [
       { role: "system", content: systemPrompt },
@@ -311,14 +316,14 @@ app.post("/api/demo/agent", async (req, res) => {
     const response = await fetch(`${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=${apiVersion}`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "api-key": key },
-      body: JSON.stringify({ messages, max_tokens: 150 }),
+      body: JSON.stringify({ messages, max_tokens: 80 }),
     });
     if (!response.ok) {
       const err = await response.text();
       return res.status(response.status).json({ error: "OpenAI failed", detail: err });
     }
     const data = await response.json();
-    let text = data?.choices?.[0]?.message?.content?.trim() || (isOpening ? "Hi, this is Natiq. Quick call about off-plan opportunities in Dubai—interested?" : "I didn't catch that. Could you repeat?");
+    let text = data?.choices?.[0]?.message?.content?.trim() || (isOpening ? "Your paracetamol is ready for pickup at the pharmacy." : "Sorry?");
     const endCall = text.includes("[END_CALL]");
     if (endCall) text = text.replace(/\s*\[END_CALL\]\s*$/i, "").trim();
     return res.json({ text, endCall: endCall || undefined });

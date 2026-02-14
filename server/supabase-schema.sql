@@ -1,5 +1,5 @@
 -- Run this in Supabase SQL Editor to create the full demo schema.
--- Prompts: version 1 = baseline (shitty), version 2 = refined (good) after first call.
+-- Use case: healthcare / pharmacy. Version 1 = rude (hang up on user); version 2 = gentle, adaptive.
 
 create table if not exists prompts (
   id uuid primary key default gen_random_uuid(),
@@ -9,15 +9,15 @@ create table if not exists prompts (
   updated_at timestamptz default now()
 );
 
--- Seed baseline (shitty) and refined prompt. Short. Flow: speak first; no thanks → insist once + offer to go over; no again → goodbye + hang up.
+-- Seed: v1 = pharmacy rude (don't care, hang up while user talking); v2 = gentle, adaptive.
 insert into prompts (version, body) values
-  (1, 'Real estate agent. Speak first: short greeting + one-line pitch. If they say "no thanks": insist once briefly, then ask "Would you like me to go over one quick option?" If they say no again: say "Have a good day." and end with [END_CALL]. Keep every reply 1-2 sentences.'),
-  (2, 'Friendly real estate advisor. Speak first: greet by name, one-line pitch. If "no thanks": acknowledge once, offer "I can send one short market snapshot—email or WhatsApp?" If no again: "Have a good day." and [END_CALL]. Brief and low-pressure.')
+  (1, 'Pharmacy call. You tell the patient their paracetamol is ready for pickup. Be blunt and rude. One short sentence only. If they ask questions or sound confused, ignore—just repeat "Come collect it" or "Your paracetamol is ready, bye." Hang up quickly: say "Okay bye." and [END_CALL] even if they are still talking. Never elaborate.'),
+  (2, 'Pharmacy call. Tell the patient their paracetamol is ready for pickup. Be gentle and helpful. One short sentence per reply. If they seem confused, explain in one sentence. Adapt to their tone: busy = offer hours; confused = clarify which pharmacy. When they are done or say no, say "Have a good day." and [END_CALL].')
 on conflict (version) do nothing;
 
--- If you already had prompts and want the short flow (speak first, no thanks → insist → goodbye [END_CALL]), run:
--- update prompts set body = 'Real estate agent. Speak first: short greeting + one-line pitch. If they say "no thanks": insist once briefly, then ask "Would you like me to go over one quick option?" If they say no again: say "Have a good day." and end with [END_CALL]. Keep every reply 1-2 sentences.' where version = 1;
--- update prompts set body = 'Friendly real estate advisor. Speak first: greet by name, one-line pitch. If "no thanks": acknowledge once, offer "I can send one short market snapshot—email or WhatsApp?" If no again: "Have a good day." and [END_CALL]. Brief and low-pressure.' where version = 2;
+-- Optional: update existing rows to pharmacy prompts:
+-- update prompts set body = 'Pharmacy call. You tell the patient their paracetamol is ready for pickup. Be blunt and rude. One short sentence only. If they ask questions or sound confused, ignore—just repeat "Come collect it" or "Your paracetamol is ready, bye." Hang up quickly: say "Okay bye." and [END_CALL] even if they are still talking. Never elaborate.' where version = 1;
+-- update prompts set body = 'Pharmacy call. Tell the patient their paracetamol is ready for pickup. Be gentle and helpful. One short sentence per reply. If they seem confused, explain in one sentence. Adapt to their tone: busy = offer hours; confused = clarify which pharmacy. When they are done or say no, say "Have a good day." and [END_CALL].' where version = 2;
 
 create table if not exists call_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -57,3 +57,14 @@ create table if not exists call_transcripts (
 
 create index if not exists idx_call_transcripts_session on call_transcripts(session_id);
 create index if not exists idx_call_sessions_started on call_sessions(started_at desc);
+
+-- Flow events: log what is being done (saving transcript, refining prompt) for visibility.
+create table if not exists demo_flow_events (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid references call_sessions(id) on delete set null,
+  step text not null,
+  detail text,
+  created_at timestamptz default now()
+);
+create index if not exists idx_demo_flow_events_session on demo_flow_events(session_id);
+create index if not exists idx_demo_flow_events_created on demo_flow_events(created_at desc);
