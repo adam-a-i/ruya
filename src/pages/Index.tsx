@@ -1,12 +1,29 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import HeroSection from "@/components/HeroSection";
+import ProblemSection from "@/components/ProblemSection";
+import HowItWorksSection from "@/components/HowItWorksSection";
+import OutcomeSection from "@/components/OutcomeSection";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
-      </div>
+    <div className="min-h-screen bg-background">
+      {/* Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 glass">
+        <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="text-xl font-bold tracking-tight font-[Space_Grotesk]">
+            ruya<span className="text-primary">.</span>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            Ruya Hackathon 2025
+          </div>
+        </div>
+      </nav>
+
+      <HeroSection />
+      <ProblemSection />
+      <HowItWorksSection />
+      <OutcomeSection />
+      <Footer />
     </div>
   );
 };
